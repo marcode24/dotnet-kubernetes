@@ -1,4 +1,6 @@
+using System.Net;
 using Microsoft.AspNetCore.Identity;
+using NetKubernetes.Middleware;
 using NetKubernetes.Models;
 using NetKubernetes.Token;
 
@@ -20,6 +22,14 @@ public class InmuebleRepository : IInmuebleRepository {
   }
   public async Task CreateInmueble(Inmueble inmueble) {
     var usuario = await _userManager.FindByNameAsync(_usuarioSesion.ObtenerUsuarioSesion());
+    if(usuario is null) {
+      throw new MiddlewareException(HttpStatusCode.Unauthorized, new { mensaje = "El usuario del token no existe en la base de datos" });
+    }
+
+    if(inmueble is null) {
+      throw new MiddlewareException(HttpStatusCode.BadRequest, new { mensaje = "El inmueble no puede ser nulo" });
+    }
+
     inmueble.FechaCreacion = DateTime.Now;
     inmueble.UsuarioId = Guid.Parse(usuario!.Id);
 
