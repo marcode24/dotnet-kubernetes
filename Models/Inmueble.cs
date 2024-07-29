@@ -14,4 +14,5 @@ public class Inmueble {
   public decimal Precio { get; set; } = 0;
   public string Picture { get; set; } = string.Empty;
   public DateTime FechaCreacion { get; set; }
+  public Guid UsuarioId { get; set; } = Guid.Empty;
 }
