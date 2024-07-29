@@ -1,5 +1,8 @@
+using System.Net;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using NetKubernetes.Dtos.UsuarioDtos;
+using NetKubernetes.Middleware;
 using NetKubernetes.Models;
 using NetKubernetes.Token;
 
@@ -40,17 +43,37 @@ public class UsuarioRepository : IUsuarioRepository {
 
   public async Task<UsuarioResponseDto> GetUsuario() {
     var usuario = await _userManager.FindByNameAsync(_usuarioSesion.ObtenerUsuarioSesion());
+    if(usuario is null) {
+      throw new MiddlewareException(HttpStatusCode.Unauthorized, new { mensaje = "El usuario del token no existe en la base de datos"});
+    }
     return TransformerUserToUserDto(usuario!);
   }
 
   public async Task<UsuarioResponseDto> Login(UsuarioLoginRequestDto usuarioLoginRequestDto) {
     var usuario = await _userManager.FindByEmailAsync(usuarioLoginRequestDto.Email);
-    await _signInManager.CheckPasswordSignInAsync(usuario!, usuarioLoginRequestDto.Password!, false);
+    if(usuario is null) {
+      throw new MiddlewareException(HttpStatusCode.Unauthorized, new { mensaje = "El email del usuario no existe en la base de datos" });
+    }
 
-    return TransformerUserToUserDto(usuario!);
+    var resultado = await _signInManager.CheckPasswordSignInAsync(usuario!, usuarioLoginRequestDto.Password!, false);
+    if(resultado.Succeeded) {
+      return TransformerUserToUserDto(usuario!);
+    }
+
+    throw new MiddlewareException(HttpStatusCode.Unauthorized, new { mensaje = "Usuario y/o contraseña incorrectos" });
   }
 
   public async Task<UsuarioResponseDto> Register(UsuarioRegistroRequestDto usuarioRegistroRequestDto) {
+    var existeEmail = await _context.Users.Where(x => x.Email == usuarioRegistroRequestDto.Email).AnyAsync();
+    if(existeEmail) {
+      throw new MiddlewareException(HttpStatusCode.BadRequest, new { mensaje = "El email ya existe en la base de datos" });
+    }
+
+    var existeUserName = await _context.Users.Where(x => x.UserName == usuarioRegistroRequestDto.UserName).AnyAsync();
+    if(existeUserName) {
+      throw new MiddlewareException(HttpStatusCode.BadRequest, new { mensaje = "El username ya existe en la base de datos" });
+    }
+
     var usuario = new Usuario {
       Nombre = usuarioRegistroRequestDto.Nombre,
       Apellido = usuarioRegistroRequestDto.Apellido,
@@ -59,8 +82,11 @@ public class UsuarioRepository : IUsuarioRepository {
       UserName = usuarioRegistroRequestDto.UserName,
     };
 
-    await _userManager.CreateAsync(usuario, usuarioRegistroRequestDto.Password);
+    var resultado = await _userManager.CreateAsync(usuario, usuarioRegistroRequestDto.Password);
+    if(resultado.Succeeded) {
+      return TransformerUserToUserDto(usuario);
+    }
 
-    return TransformerUserToUserDto(usuario);
+    throw new MiddlewareException(HttpStatusCode.InternalServerError, new { mensaje = "Error al registrar el usuario" });
   }
 }
