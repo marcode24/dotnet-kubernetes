@@ -1,0 +1,6 @@
+@NetKubernetes_HostAddress = http://localhost:5284
+
+GET {{NetKubernetes_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
