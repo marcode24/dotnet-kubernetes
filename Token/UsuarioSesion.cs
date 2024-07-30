@@ -2,11 +2,11 @@ using System.Security.Claims;
 
 namespace NetKubernetes.Token;
 
-public class UsusarioSesion : IUsuarioSesion
+public class UsuarioSesion : IUsuarioSesion
 {
   private readonly IHttpContextAccessor _httpContextAccessor;
 
-  public UsusarioSesion(IHttpContextAccessor httpContextAccessor) {
+  public UsuarioSesion(IHttpContextAccessor httpContextAccessor) {
     _httpContextAccessor = httpContextAccessor;
   }
 

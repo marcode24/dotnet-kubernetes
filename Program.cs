@@ -1,6 +1,5 @@
 using System.Text;
 using AutoMapper;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -14,6 +13,7 @@ using NetKubernetes.Middleware;
 using NetKubernetes.Models;
 using NetKubernetes.Profiles;
 using NetKubernetes.Token;
+using NetKubernetes.Utilities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,9 +47,9 @@ var builderSecurity = builder.Services.AddIdentityCore<Usuario>();
 var identityBuilder = new IdentityBuilder(builderSecurity.UserType, builder.Services);
 identityBuilder.AddEntityFrameworkStores<AppDbContext>();
 identityBuilder.AddSignInManager<SignInManager<Usuario>>();
-builder.Services.AddSingleton<TimeProvider>();
+builder.Services.AddSingleton<ITimeProvider, NetKubernetes.Utilities.TimeProvider>();
 builder.Services.AddScoped<IJwtGenerador, JwtGenerador>();
-builder.Services.AddScoped<IUsuarioSesion, IUsuarioSesion>();
+builder.Services.AddScoped<IUsuarioSesion, UsuarioSesion>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 
 var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("Mi palabra secreta"));
@@ -81,10 +81,27 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<ManagerMiddleware>();
 
 app.UseAuthentication();
-
+app.UseCors("CorsPolicy");
 // app.UseHttpsRedirection();
 
 app.UseAuthorization();
 app.MapControllers();
+
+using (var ambiente = app.Services.CreateScope())
+{
+  var services = ambiente.ServiceProvider;
+  try
+  {
+    var userManager = services.GetRequiredService<UserManager<Usuario>>();
+    var context = services.GetRequiredService<AppDbContext>();
+    await context.Database.MigrateAsync();
+    await LoadDatabase.InsertarData(context, userManager);
+  }
+  catch (Exception ex)
+  {
+    var logger = services.GetRequiredService<ILogger<Program>>();
+    logger.LogError(ex, "Ocurrio un error en la migracion");
+  }
+}
 
 app.Run();
